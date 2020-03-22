@@ -16,7 +16,8 @@ void activator();
 void timer_interrupt(int sig);
 void disk_interrupt(int sig);
 long ticks = 0;
-struct queue *listos;
+struct queue *listosAlta;
+struct queue *listosBaja;
 
 /* Array of state thread control blocks: the process allows a maximum of N threads */
 static TCB t_state[N]; 
@@ -43,9 +44,9 @@ void function_thread(int sec)
     while(running->remaining_ticks)
     {
       //do something
-      /*printf("Hola %i\n", current);
-      printf("Queda rodaja %i\n", running->ticks);
-      printf("Queda tiempo %i\n", running->remaining_ticks);*/
+      //printf("Hola %i\n", current);
+      //printf("Queda rodaja %i\n", running->ticks);
+      //printf("Quedan ticks %i\n", running->remaining_ticks);
     }
     mythread_exit();
 }
@@ -97,7 +98,8 @@ void init_mythreadlib()
 
   t_state[0].tid = 0;
   running = &t_state[0];
-  listos = queue_new();
+  listosAlta = queue_new();
+  listosBaja = queue_new();
 
   /* Initialize disk and clock interrupts */
   init_disk_interrupt();
@@ -145,13 +147,14 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 
   disable_interrupt();
   disable_disk_interrupt();
-
-  enqueue(listos, (void*)&(t_state[i]));
-
+  if (t_state[i].priority == HIGH_PRIORITY){
+    enqueue(listosAlta, (void*)&(t_state[i]));
+  }
+  else{
+    enqueue(listosBaja, (void*)&(t_state[i]));
+  }
   enable_disk_interrupt();
   enable_interrupt();
-
-  printf("Hola: %i\n", i);
   return i;
 } 
 /****** End my_thread_create() ******/
@@ -177,9 +180,9 @@ void mythread_exit() {
   printf("*** THREAD %d FINISHED\n", tid);	
   t_state[tid].state = FREE;
   free(t_state[tid].run_env.uc_stack.ss_sp); 
-
-  TCB* next = scheduler();
-  activator(next);
+  oldRunning = running;
+  running = scheduler();
+  activator(running);
 }
 
 
@@ -224,60 +227,65 @@ int mythread_gettid(){
 TCB* scheduler()
 {
   TCB* nuevo;
-  if (queue_empty(listos) == 0){
+  if (!queue_empty(listosAlta)){
     disable_interrupt();
     disable_disk_interrupt();
-    nuevo = dequeue(listos);
+    nuevo = dequeue(listosAlta);
     enable_disk_interrupt();
     enable_interrupt();
     current = nuevo->tid;
     return nuevo;
   }
-  else if (oldRunning->state == INIT){
-    return oldRunning;
+  if (!queue_empty(listosBaja)){
+    disable_interrupt();
+    disable_disk_interrupt();
+    nuevo = dequeue(listosBaja);
+    enable_disk_interrupt();
+    enable_interrupt();
+    current = nuevo->tid;
+    return nuevo;
   }
-  else{
-    printf("mythread_free: No thread in the system\nExiting...\n");	
-    exit(1);
-  }
+  printf("mythread_free: No thread in the system\nExiting...\n");	
+  exit(1);
+  
 }
 
 
 /* Timer interrupt */
 void timer_interrupt(int sig){
   ticks++;
-  if (running != NULL){
-      running->ticks--;
-      running->remaining_ticks--;
-      if (running->ticks == 0){
-          running->ticks = QUANTUM_TICKS;
-          running->state = INIT;
-          disable_interrupt();
-          disable_disk_interrupt();
-          enqueue(listos, running);
-          enable_disk_interrupt();
-          enable_interrupt();
-          oldRunning = running;
-          running = scheduler();
-          activator(running);
+  running->ticks--;
+  running->remaining_ticks--;
+    if (running->ticks == 0){
+      running->ticks = QUANTUM_TICKS;
+      running->state = INIT;
+      disable_interrupt();
+      disable_disk_interrupt();
+      if (running->priority == HIGH_PRIORITY){
+        enqueue(listosAlta, (void*)(running));     
       }
-  }
-
+      else{
+        enqueue(listosBaja, (void*)(running));
+      }
+      enable_disk_interrupt();
+      enable_interrupt();
+      oldRunning = running;
+      running = scheduler();
+      activator(running);
+    }
 } 
 
 /* Activator */
 void activator(TCB* next){
   if (oldRunning->state == FREE){
-    printf("SetContext\n");
+    printf("*** THREAD %i TERMINATED: SETCONTEXT OF %i\n", oldRunning->tid, next->tid);
     setcontext (&(next->run_env));
     printf("mythread_free: After setcontext, should never get here!!...\n");
   }
   else{
-    printf("Swapcontext\n");
+    printf("*** SWAPCONTEXT FROM %i TO %i\n", oldRunning->tid, next->tid);
     swapcontext(&(oldRunning->run_env), &(next->run_env));
-  }
-  
-  	
+  }	
 }
 
 
