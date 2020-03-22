@@ -15,7 +15,8 @@ TCB* scheduler();
 void activator();
 void timer_interrupt(int sig);
 void disk_interrupt(int sig);
-
+long ticks = 0;
+struct queue *listos;
 
 /* Array of state thread control blocks: the process allows a maximum of N threads */
 static TCB t_state[N]; 
@@ -23,6 +24,7 @@ static TCB t_state[N];
 /* Current running thread */
 static TCB* running;
 static int current = 0;
+static TCB* oldRunning;
 
 /* Variable indicating if the library is initialized (init == 1) or not (init == 0) */
 static int init=0;
@@ -41,6 +43,9 @@ void function_thread(int sec)
     while(running->remaining_ticks)
     {
       //do something
+      /*printf("Hola %i\n", current);
+      printf("Queda rodaja %i\n", running->ticks);
+      printf("Queda tiempo %i\n", running->remaining_ticks);*/
     }
     mythread_exit();
 }
@@ -92,6 +97,7 @@ void init_mythreadlib()
 
   t_state[0].tid = 0;
   running = &t_state[0];
+  listos = queue_new();
 
   /* Initialize disk and clock interrupts */
   init_disk_interrupt();
@@ -120,6 +126,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   t_state[i].state = INIT;
   t_state[i].priority = priority;
   t_state[i].function = fun_addr;
+  t_state[i].ticks = QUANTUM_TICKS;
   t_state[i].execution_total_ticks = seconds_to_ticks(seconds);
   t_state[i].remaining_ticks = t_state[i].execution_total_ticks;
   t_state[i].run_env.uc_stack.ss_sp = (void *)(malloc(STACKSIZE));
@@ -133,8 +140,18 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   t_state[i].tid = i;
   t_state[i].run_env.uc_stack.ss_size = STACKSIZE;
   t_state[i].run_env.uc_stack.ss_flags = 0;
+
   makecontext(&t_state[i].run_env, fun_addr,2,seconds);
 
+  disable_interrupt();
+  disable_disk_interrupt();
+
+  enqueue(listos, (void*)&(t_state[i]));
+
+  enable_disk_interrupt();
+  enable_interrupt();
+
+  printf("Hola: %i\n", i);
   return i;
 } 
 /****** End my_thread_create() ******/
@@ -206,32 +223,61 @@ int mythread_gettid(){
 
 TCB* scheduler()
 {
-  int i;
-  for(i=0; i<N; i++)
-  {
-    if (t_state[i].state == INIT) 
-    {
-      current = i;
-	    return &t_state[i];
-    }
+  TCB* nuevo;
+  if (queue_empty(listos) == 0){
+    disable_interrupt();
+    disable_disk_interrupt();
+    nuevo = dequeue(listos);
+    enable_disk_interrupt();
+    enable_interrupt();
+    current = nuevo->tid;
+    return nuevo;
   }
-  printf("mythread_free: No thread in the system\nExiting...\n");	
-  exit(1);
+  else if (oldRunning->state == INIT){
+    return oldRunning;
+  }
+  else{
+    printf("mythread_free: No thread in the system\nExiting...\n");	
+    exit(1);
+  }
 }
 
 
 /* Timer interrupt */
-void timer_interrupt(int sig)
-{
-  
+void timer_interrupt(int sig){
+  ticks++;
+  if (running != NULL){
+      running->ticks--;
+      running->remaining_ticks--;
+      if (running->ticks == 0){
+          running->ticks = QUANTUM_TICKS;
+          running->state = INIT;
+          disable_interrupt();
+          disable_disk_interrupt();
+          enqueue(listos, running);
+          enable_disk_interrupt();
+          enable_interrupt();
+          oldRunning = running;
+          running = scheduler();
+          activator(running);
+      }
+  }
 
 } 
 
 /* Activator */
-void activator(TCB* next)
-{
-  setcontext (&(next->run_env));
-  printf("mythread_free: After setcontext, should never get here!!...\n");	
+void activator(TCB* next){
+  if (oldRunning->state == FREE){
+    printf("SetContext\n");
+    setcontext (&(next->run_env));
+    printf("mythread_free: After setcontext, should never get here!!...\n");
+  }
+  else{
+    printf("Swapcontext\n");
+    swapcontext(&(oldRunning->run_env), &(next->run_env));
+  }
+  
+  	
 }
 
 
