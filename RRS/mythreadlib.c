@@ -151,11 +151,12 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
     running->ticks = QUANTUM_TICKS;
     disable_interrupt();
     disable_disk_interrupt();
-    enqueue(listosBaja, (void*)running);    
+    enqueue(listosBaja, (void*)running);
+    sorted_enqueue(listosAlta, (void*)&(t_state[i]), t_state[i].remaining_ticks);   
     enable_disk_interrupt();
     enable_interrupt();
     oldRunning = running;
-    running = &t_state[i];
+    running = scheduler();
     activator(running);
   }
   else{
@@ -163,11 +164,12 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
     running->state = INIT;
     disable_interrupt();
     disable_disk_interrupt();
-    sorted_enqueue(listosAlta, running, running->remaining_ticks);     
+    sorted_enqueue(listosAlta, running, running->remaining_ticks); 
+    sorted_enqueue(listosAlta, (void*)&(t_state[i]), t_state[i].remaining_ticks); 
     enable_disk_interrupt();
     enable_interrupt();
     oldRunning = running;
-    running = &t_state[i];
+    running = scheduler();
     activator(running);
     }
     else{

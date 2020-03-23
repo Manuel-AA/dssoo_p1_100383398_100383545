@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
   int j,k,l,m,a,b,f;
 
 
-  mythread_setpriority(LOW_PRIORITY);
+  mythread_setpriority(HIGH_PRIORITY);
   if((f = mythread_create(function_thread,HIGH_PRIORITY,5)) == -1){
       printf("thread failed to initialize\n");
       exit(-1);
