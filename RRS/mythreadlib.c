@@ -146,22 +146,12 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   makecontext(&t_state[i].run_env, fun_addr,2,seconds);
   
   if (t_state[i].priority == HIGH_PRIORITY && running->priority == LOW_PRIORITY){
+    printf("*** THREAD %i PREEMTED: SETCONTEXT OF %i\n", running->tid, t_state[i].tid);
+    running->state = INIT;
     running->ticks = QUANTUM_TICKS;
-    running->state = INIT;
     disable_interrupt();
     disable_disk_interrupt();
-    enqueue(listosBaja, (void*)(running));     
-    enable_disk_interrupt();
-    enable_interrupt();
-    oldRunning = running;
-    running = &t_state[i];
-    activator(running);
-  }
-  else if (t_state[i].priority == HIGH_PRIORITY && running->priority == HIGH_PRIORITY && t_state[i].execution_total_ticks < running->execution_total_ticks){
-    running->state = INIT;
-    disable_interrupt();
-    disable_disk_interrupt();
-    sorted_enqueue(listosAlta, (void*)(running), running->execution_total_ticks);     
+    enqueue(listosBaja, (void*)running);    
     enable_disk_interrupt();
     enable_interrupt();
     oldRunning = running;
@@ -169,18 +159,30 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
     activator(running);
   }
   else{
+    if (t_state[i].priority == HIGH_PRIORITY && running->priority == HIGH_PRIORITY && t_state[i].execution_total_ticks < running->remaining_ticks){
+    running->state = INIT;
     disable_interrupt();
     disable_disk_interrupt();
-    if (t_state[i].priority == HIGH_PRIORITY){
-      enqueue(listosAlta, (void*)&(t_state[i]));
-    }
-    else{
-      enqueue(listosBaja, (void*)&(t_state[i]));
-    }
+    sorted_enqueue(listosAlta, running, running->remaining_ticks);     
     enable_disk_interrupt();
     enable_interrupt();
+    oldRunning = running;
+    running = &t_state[i];
+    activator(running);
+    }
+    else{
+      disable_interrupt();
+      disable_disk_interrupt();
+      if (t_state[i].priority == HIGH_PRIORITY){
+        sorted_enqueue(listosAlta, (void*)&(t_state[i]), t_state[i].remaining_ticks);
+      }
+      else{
+        enqueue(listosBaja, (void*)&(t_state[i]));
+      }
+      enable_disk_interrupt();
+      enable_interrupt();
+    }
   }
-  printf("Hola %i", i);
   return i;
 } 
 /****** End my_thread_create() ******/
