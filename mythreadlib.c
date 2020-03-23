@@ -16,8 +16,7 @@ void activator();
 void timer_interrupt(int sig);
 void disk_interrupt(int sig);
 long ticks = 0;
-struct queue *listosAlta;
-struct queue *listosBaja;
+struct queue *listos;
 
 /* Array of state thread control blocks: the process allows a maximum of N threads */
 static TCB t_state[N]; 
@@ -98,8 +97,7 @@ void init_mythreadlib()
 
   t_state[0].tid = 0;
   running = &t_state[0];
-  listosAlta = queue_new();
-  listosBaja = queue_new();
+  listos = queue_new();
 
   /* Initialize disk and clock interrupts */
   init_disk_interrupt();
@@ -147,12 +145,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 
   disable_interrupt();
   disable_disk_interrupt();
-  if (t_state[i].priority == HIGH_PRIORITY){
-    enqueue(listosAlta, (void*)&(t_state[i]));
-  }
-  else{
-    enqueue(listosBaja, (void*)&(t_state[i]));
-  }
+  enqueue(listos, (void*)&(t_state[i]));
   enable_disk_interrupt();
   enable_interrupt();
   return i;
@@ -187,13 +180,13 @@ void mythread_exit() {
 
 
 void mythread_timeout(int tid) {
+  printf("*** THREAD %d EJECTED\n", tid);
+  t_state[tid].state = FREE;
+  free(t_state[tid].run_env.uc_stack.ss_sp);
 
-    printf("*** THREAD %d EJECTED\n", tid);
-    t_state[tid].state = FREE;
-    free(t_state[tid].run_env.uc_stack.ss_sp);
-
-    TCB* next = scheduler();
-    activator(next);
+  oldRunning = running;
+  running = scheduler();
+  activator(running);
 }
 
 
@@ -222,24 +215,15 @@ int mythread_gettid(){
 }
 
 
-/* SJF para alta prioridad, RR para baja*/
+/* RR */
 
 TCB* scheduler()
 {
   TCB* nuevo;
-  if (!queue_empty(listosAlta)){
+  if (!queue_empty(listos)){
     disable_interrupt();
     disable_disk_interrupt();
-    nuevo = dequeue(listosAlta);
-    enable_disk_interrupt();
-    enable_interrupt();
-    current = nuevo->tid;
-    return nuevo;
-  }
-  if (!queue_empty(listosBaja)){
-    disable_interrupt();
-    disable_disk_interrupt();
-    nuevo = dequeue(listosBaja);
+    nuevo = dequeue(listos);
     enable_disk_interrupt();
     enable_interrupt();
     current = nuevo->tid;
@@ -261,17 +245,14 @@ void timer_interrupt(int sig){
       running->state = INIT;
       disable_interrupt();
       disable_disk_interrupt();
-      if (running->priority == HIGH_PRIORITY){
-        enqueue(listosAlta, (void*)(running));     
-      }
-      else{
-        enqueue(listosBaja, (void*)(running));
-      }
+      enqueue(listos, (void*)(running));     
       enable_disk_interrupt();
       enable_interrupt();
       oldRunning = running;
       running = scheduler();
-      activator(running);
+      if (running != oldRunning){
+        activator(running);
+      }
     }
 } 
 
