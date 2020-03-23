@@ -16,7 +16,8 @@ void activator();
 void timer_interrupt(int sig);
 void disk_interrupt(int sig);
 long ticks = 0;
-struct queue *listos;
+struct queue *listosAlta;
+struct queue *listosBaja;
 
 /* Array of state thread control blocks: the process allows a maximum of N threads */
 static TCB t_state[N]; 
@@ -97,7 +98,8 @@ void init_mythreadlib()
 
   t_state[0].tid = 0;
   running = &t_state[0];
-  listos = queue_new();
+  listosAlta = queue_new();
+  listosBaja = queue_new();
 
   /* Initialize disk and clock interrupts */
   init_disk_interrupt();
@@ -142,12 +144,43 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   t_state[i].run_env.uc_stack.ss_flags = 0;
 
   makecontext(&t_state[i].run_env, fun_addr,2,seconds);
-
-  disable_interrupt();
-  disable_disk_interrupt();
-  enqueue(listos, (void*)&(t_state[i]));
-  enable_disk_interrupt();
-  enable_interrupt();
+  
+  if (t_state[i].priority == HIGH_PRIORITY && running->priority == LOW_PRIORITY){
+    running->ticks = QUANTUM_TICKS;
+    running->state = INIT;
+    disable_interrupt();
+    disable_disk_interrupt();
+    enqueue(listosBaja, (void*)(running));     
+    enable_disk_interrupt();
+    enable_interrupt();
+    oldRunning = running;
+    running = &t_state[i];
+    activator(running);
+  }
+  else if (t_state[i].priority == HIGH_PRIORITY && running->priority == HIGH_PRIORITY && t_state[i].execution_total_ticks < running->execution_total_ticks){
+    running->state = INIT;
+    disable_interrupt();
+    disable_disk_interrupt();
+    sorted_enqueue(listosAlta, (void*)(running), running->execution_total_ticks);     
+    enable_disk_interrupt();
+    enable_interrupt();
+    oldRunning = running;
+    running = &t_state[i];
+    activator(running);
+  }
+  else{
+    disable_interrupt();
+    disable_disk_interrupt();
+    if (t_state[i].priority == HIGH_PRIORITY){
+      enqueue(listosAlta, (void*)&(t_state[i]));
+    }
+    else{
+      enqueue(listosBaja, (void*)&(t_state[i]));
+    }
+    enable_disk_interrupt();
+    enable_interrupt();
+  }
+  printf("Hola %i", i);
   return i;
 } 
 /****** End my_thread_create() ******/
@@ -220,10 +253,19 @@ int mythread_gettid(){
 TCB* scheduler()
 {
   TCB* nuevo;
-  if (!queue_empty(listos)){
+  if (!queue_empty(listosAlta)){
     disable_interrupt();
     disable_disk_interrupt();
-    nuevo = dequeue(listos);
+    nuevo = dequeue(listosAlta);
+    enable_disk_interrupt();
+    enable_interrupt();
+    current = nuevo->tid;
+    return nuevo;
+  }
+  if (!queue_empty(listosBaja)){
+    disable_interrupt();
+    disable_disk_interrupt();
+    nuevo = dequeue(listosBaja);
     enable_disk_interrupt();
     enable_interrupt();
     current = nuevo->tid;
@@ -238,14 +280,15 @@ TCB* scheduler()
 /* Timer interrupt */
 void timer_interrupt(int sig){
   ticks++;
-  running->ticks--;
   running->remaining_ticks--;
-    if (running->ticks == 0){
+  running->ticks--;
+  if (running->ticks == 0){
+    if (running->priority == LOW_PRIORITY){ 
       running->ticks = QUANTUM_TICKS;
       running->state = INIT;
       disable_interrupt();
       disable_disk_interrupt();
-      enqueue(listos, (void*)(running));     
+      enqueue(listosBaja, (void*)(running));     
       enable_disk_interrupt();
       enable_interrupt();
       oldRunning = running;
@@ -254,6 +297,7 @@ void timer_interrupt(int sig){
         activator(running);
       }
     }
+  }
 } 
 
 /* Activator */
