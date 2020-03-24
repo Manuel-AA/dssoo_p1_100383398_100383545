@@ -175,6 +175,7 @@ void mythread_exit() {
   free(t_state[tid].run_env.uc_stack.ss_sp); 
   oldRunning = running;
   running = scheduler();
+  printf("*** THREAD %i TERMINATED: SETCONTEXT OF %i\n", oldRunning->tid, running->tid);
   activator(running);
 }
 
@@ -251,6 +252,7 @@ void timer_interrupt(int sig){
       oldRunning = running;
       running = scheduler();
       if (running != oldRunning){
+        printf("*** SWAPCONTEXT FROM %i TO %i\n", oldRunning->tid, running->tid);
         activator(running);
       }
     }
@@ -259,12 +261,10 @@ void timer_interrupt(int sig){
 /* Activator */
 void activator(TCB* next){
   if (oldRunning->state == FREE){
-    printf("*** THREAD %i TERMINATED: SETCONTEXT OF %i\n", oldRunning->tid, next->tid);
     setcontext (&(next->run_env));
     printf("mythread_free: After setcontext, should never get here!!...\n");
   }
   else{
-    printf("*** SWAPCONTEXT FROM %i TO %i\n", oldRunning->tid, next->tid);
     swapcontext(&(oldRunning->run_env), &(next->run_env));
   }	
 }

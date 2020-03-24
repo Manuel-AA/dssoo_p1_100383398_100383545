@@ -18,15 +18,15 @@ int main(int argc, char *argv[])
   int j,k,l,m,a,b,f;
   printf("Hola\n");
 
-  mythread_setpriority(LOW_PRIORITY);
-  if((f = mythread_create(function_thread,HIGH_PRIORITY,2)) == -1){
+  mythread_setpriority(HIGH_PRIORITY);
+  if((f = mythread_create(function_thread,HIGH_PRIORITY,3)) == -1){
       printf("thread failed to initialize\n");
       exit(-1);
   }
   read_disk();
   read_disk();
 
-  if((j = mythread_create(function_thread,HIGH_PRIORITY, 2)) == -1){
+  if((j = mythread_create(function_thread,HIGH_PRIORITY, 1)) == -1){
     printf("thread failed to initialize\n");
     exit(-1);
   }
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     printf("thread failed to initialize\n");
     exit(-1);
   }  
-  if((l = mythread_create(function_thread,LOW_PRIORITY, 2)) == -1){
+  /*if((l = mythread_create(function_thread,LOW_PRIORITY, 2)) == -1){
     printf("thread failed to initialize\n");
     exit(-1);
   }
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
   if((m = mythread_create(function_thread,HIGH_PRIORITY, 1)) == -1){
     printf("thread failed to initialize\n");
     exit(-1);
-  }
+  }*/
   read_disk();
       
      
