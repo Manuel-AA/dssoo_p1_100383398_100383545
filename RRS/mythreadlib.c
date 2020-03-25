@@ -152,12 +152,12 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
     running->ticks = QUANTUM_TICKS;
     disable_interrupt();
     disable_disk_interrupt();
-    enqueue(listosBaja, (void*)running);
-    sorted_enqueue(listosAlta, (void*)&(t_state[i]), t_state[i].remaining_ticks);   
+    enqueue(listosBaja, (void*)running);   
     enable_disk_interrupt();
     enable_interrupt();
     oldRunning = running;
-    running = scheduler();
+    running = &t_state[i];
+    current = t_state[i].tid;
     printf("*** THREAD %i PREEMTED: SETCONTEXT OF %i\n", oldRunning->tid, running->tid);
     activator(running);
   }
@@ -167,11 +167,11 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
     disable_interrupt();
     disable_disk_interrupt();
     sorted_enqueue(listosAlta, running, running->remaining_ticks); 
-    sorted_enqueue(listosAlta, (void*)&(t_state[i]), t_state[i].remaining_ticks); 
     enable_disk_interrupt();
     enable_interrupt();
     oldRunning = running;
-    running = scheduler();
+    running = &t_state[i];
+    current = t_state[i].tid;
     printf("*** SWAPCONTEXT FROM %i TO %i\n", oldRunning->tid, running->tid);
     activator(running);
     }

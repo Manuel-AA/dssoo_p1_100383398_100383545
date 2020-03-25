@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     printf("thread failed to initialize\n");
     exit(-1);
   }
-  if((k = mythread_create(function_thread,HIGH_PRIORITY, 1)) == -1){
+  if((k = mythread_create(function_thread,LOW_PRIORITY, 1)) == -1){
     printf("thread failed to initialize\n");
     exit(-1);
   }  
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
-  if((m = mythread_create(function_thread,HIGH_PRIORITY, 1)) == -1){
+  if((m = mythread_create(function_thread,LOW_PRIORITY, 1)) == -1){
     printf("thread failed to initialize\n");
     exit(-1);
   }
