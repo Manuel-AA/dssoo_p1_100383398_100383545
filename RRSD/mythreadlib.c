@@ -46,9 +46,9 @@ void function_thread(int sec)
     while(running->remaining_ticks)
     {
       //do something
-      //printf("Hola %i\n", current);
+      printf("Hola %i\n", current);
       //printf("Queda rodaja %i\n", running->ticks);
-      //printf("Quedan ticks %i\n", running->remaining_ticks);
+      printf("Quedan ticks %i\n", running->remaining_ticks);
     }
     mythread_exit();
 }
@@ -131,7 +131,9 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   t_state[i].state = INIT;
   t_state[i].priority = priority;
   t_state[i].function = fun_addr;
-  t_state[i].ticks = QUANTUM_TICKS;
+  if (t_state[i].priority == LOW_PRIORITY){
+    t_state[i].ticks = QUANTUM_TICKS;
+  }
   t_state[i].execution_total_ticks = seconds_to_ticks(seconds);
   t_state[i].remaining_ticks = t_state[i].execution_total_ticks;
   t_state[i].run_env.uc_stack.ss_sp = (void *)(malloc(STACKSIZE));
@@ -147,7 +149,6 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   t_state[i].run_env.uc_stack.ss_flags = 0;
 
   makecontext(&t_state[i].run_env, fun_addr,2,seconds);
-  
   if (t_state[i].priority == HIGH_PRIORITY && running->priority == LOW_PRIORITY){
     running->state = INIT;
     running->ticks = QUANTUM_TICKS;

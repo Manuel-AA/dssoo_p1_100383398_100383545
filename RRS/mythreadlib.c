@@ -128,7 +128,9 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   t_state[i].state = INIT;
   t_state[i].priority = priority;
   t_state[i].function = fun_addr;
-  t_state[i].ticks = QUANTUM_TICKS;
+  if (t_state[i].priority == LOW_PRIORITY){
+    t_state[i].ticks = QUANTUM_TICKS;
+  }
   t_state[i].execution_total_ticks = seconds_to_ticks(seconds);
   t_state[i].remaining_ticks = t_state[i].execution_total_ticks;
   t_state[i].run_env.uc_stack.ss_sp = (void *)(malloc(STACKSIZE));
@@ -287,9 +289,9 @@ TCB* scheduler()
 void timer_interrupt(int sig){
   ticks++;
   running->remaining_ticks--;
-  running->ticks--;
-  if (running->ticks == 0){
-    if (running->priority == LOW_PRIORITY){ 
+  if (running->priority == LOW_PRIORITY){
+    running->ticks--;
+    if (running->ticks == 0){ 
       running->ticks = QUANTUM_TICKS;
       running->state = INIT;
       disable_interrupt();
