@@ -16,7 +16,6 @@ extern void function_thread(int sec);
 int main(int argc, char *argv[])
 {
   int j,k,l,m,a,b,f;
-  printf("Hola\n");
 
   mythread_setpriority(LOW_PRIORITY);
   if((f = mythread_create(function_thread,HIGH_PRIORITY,2)) == -1){

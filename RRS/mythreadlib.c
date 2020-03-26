@@ -41,13 +41,7 @@ static void idle_function()
 void function_thread(int sec)
 {
     //time_t end = time(NULL) + sec;
-    while(running->remaining_ticks)
-    {
-      //do something
-      //printf("Hola %i\n", current);
-      //printf("Queda rodaja %i\n", running->ticks);
-      //printf("Quedan ticks %i\n", running->remaining_ticks);
-    }
+    while(running->remaining_ticks);
     mythread_exit();
 }
 
@@ -236,9 +230,7 @@ void mythread_setpriority(int priority)
 {
   int tid = mythread_gettid();	
   t_state[tid].priority = priority;
-  if(priority ==  HIGH_PRIORITY){
-    t_state[tid].remaining_ticks = 195;
-  }
+  t_state[tid].remaining_ticks = 195;
 }
 
 /* Returns the priority of the calling thread */
@@ -279,7 +271,7 @@ TCB* scheduler()
     current = nuevo->tid;
     return nuevo;
   }
-  printf("mythread_free: No thread in the system\nExiting...\n");	
+  printf("*** FINISH\n");	
   exit(1);
   
 }
@@ -289,7 +281,10 @@ TCB* scheduler()
 void timer_interrupt(int sig){
   ticks++;
   running->remaining_ticks--;
-  if (running->priority == LOW_PRIORITY){
+  if (running->remaining_ticks < 0){
+    mythread_timeout(running->tid);
+  }
+  else if (running->priority == LOW_PRIORITY){
     running->ticks--;
     if (running->ticks == 0){ 
       running->ticks = QUANTUM_TICKS;

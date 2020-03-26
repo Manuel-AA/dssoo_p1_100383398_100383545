@@ -196,9 +196,7 @@ void mythread_setpriority(int priority)
 {
   int tid = mythread_gettid();	
   t_state[tid].priority = priority;
-  if(priority ==  HIGH_PRIORITY){
-    t_state[tid].remaining_ticks = 195;
-  }
+  t_state[tid].remaining_ticks = 195;
 }
 
 /* Returns the priority of the calling thread */
@@ -230,7 +228,7 @@ TCB* scheduler()
     current = nuevo->tid;
     return nuevo;
   }
-  printf("mythread_free: No thread in the system\nExiting...\n");	
+  printf("*** FINISH\n");	
   exit(1);
   
 }
@@ -241,21 +239,24 @@ void timer_interrupt(int sig){
   ticks++;
   running->ticks--;
   running->remaining_ticks--;
-    if (running->ticks == 0){
-      running->ticks = QUANTUM_TICKS;
-      running->state = INIT;
-      disable_interrupt();
-      disable_disk_interrupt();
-      enqueue(listos, (void*)(running));     
-      enable_disk_interrupt();
-      enable_interrupt();
-      oldRunning = running;
-      running = scheduler();
-      if (running != oldRunning){
-        printf("*** SWAPCONTEXT FROM %i TO %i\n", oldRunning->tid, running->tid);
-        activator(running);
-      }
+  if (running->remaining_ticks < 0){
+    mythread_timeout(running->tid);
+  }
+  else if (running->ticks == 0){
+    running->ticks = QUANTUM_TICKS;
+    running->state = INIT;
+    disable_interrupt();
+    disable_disk_interrupt();
+    enqueue(listos, (void*)(running));     
+    enable_disk_interrupt();
+    enable_interrupt();
+    oldRunning = running;
+    running = scheduler();
+    if (running != oldRunning){
+      printf("*** SWAPCONTEXT FROM %i TO %i\n", oldRunning->tid, running->tid);
+      activator(running);
     }
+  }
 } 
 
 /* Activator */
