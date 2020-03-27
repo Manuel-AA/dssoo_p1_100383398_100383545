@@ -324,7 +324,20 @@ void timer_interrupt(int sig){
   }
   if (running->priority == LOW_PRIORITY){
     running->ticks--;
-    if (running->ticks == 0){
+    if (!queue_empty(listosAlta)){
+      running->ticks = QUANTUM_TICKS;
+      running->state = INIT;
+      disable_interrupt();
+      disable_disk_interrupt();
+      enqueue(listosBaja, (void*)(running));     
+      enable_disk_interrupt();
+      enable_interrupt();
+      oldRunning = running;
+      running = scheduler();
+      printf("*** THREAD %i PREEMTED: SETCONTEXT OF %i\n", oldRunning->tid, running->tid);
+      activator(running);
+    }
+    else if (running->ticks == 0){
       running->ticks = QUANTUM_TICKS;
       running->state = INIT;
       disable_interrupt();
